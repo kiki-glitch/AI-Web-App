@@ -3,13 +3,30 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from django.db import IntegrityError
+from django.contrib.auth.decorators import login_required
 
 # Create your views here.
+@login_required
 def index(request):
     return render(request, 'index.html')
 
 def user_login(request):
-   return render(request, 'login.html')
+    if request.method == 'POST':
+        username = request.POST['username']
+        password = request.POST['password']
+        
+        if not username or not password:
+            error_message = 'All fields are required.'
+            return render(request, 'login.html', {'error_message': error_message})
+        
+        user = authenticate(request,username=username, password=password)
+        if user is not None:
+            login(request, user)
+            return redirect('/')
+        else:
+            error_message = "Invalid username or password"
+            return render(request, 'login.html', {'error_message':error_message})
+    return render(request, 'login.html')
 
 def user_signup(request):
     if request.method == 'POST':
@@ -41,5 +58,6 @@ def user_signup(request):
     return render(request, 'signup.html')
 
 def user_logout(request):
-   return render(request, 'logout.html')
+   logout(request)
+   return redirect('/')
     
