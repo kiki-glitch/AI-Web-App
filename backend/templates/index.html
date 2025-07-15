@@ -108,12 +108,11 @@
         document.getElementById('generateBlogButton').addEventListener('click', async() => {
             
             const youtubeLink = document.getElementById('youtubeLink').value;
-            const loadingIndicator = document.getElementById('loading');
             const blogContent = document.getElementById('blogContent');
             
             if(youtubeLink){
                 document.getElementById('loading-circle').style.display='block';
-                loadingIndicator.classList.remove('hidden');
+                
                 blogContent.innerHTML = '' //Clear previous content
 
                 const endpointUrl = '/generate-blog';

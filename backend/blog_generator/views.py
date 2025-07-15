@@ -13,6 +13,9 @@ import os
 import yt_dlp
 import re
 import assemblyai as aai
+from groq import Groq
+
+client = Groq(api_key=settings.GROQ_API_KEY)
 
 # Create your views here.
 @login_required
@@ -23,6 +26,7 @@ def index(request):
 def generate_blog(request):
     if request.method == 'POST':
         try:
+            print('View fn acessed')
             data = json.loads(request.body)
             yt_link = data['link']
             # return JsonResponse({'content': yt_link})
@@ -31,18 +35,23 @@ def generate_blog(request):
         
         #get yt title
         title = yt_title(yt_link)
-
+        print('View title fn acessed')
         #get transcript
         transcription = get_transcription(yt_link)
+        print('View trans fn acessed')
         if not transcription:
-            return JsonResponse({'error': " Failed to get transcript"}, status=500)
+            return JsonResponse({'error': "Failed to get transcript"}, status=500)
         
         #use OpenAI to generate the blog
-
+        blog_content = generate_blog_from_transcription(transcription)
+        print('View blog fn acessed')
+        if not blog_content:
+            return JsonResponse({'error': "Failed to generate blog article"}, status=500)
+        
         #save blog article to database
 
         #return blog article as a response
-
+        return JsonResponse({'content':blog_content})
 
     else:
         return JsonResponse({'error': 'Invalid request method'}, status=405)
@@ -61,10 +70,18 @@ def sanitize_filename(title):
     return re.sub(r'[\\/*?:"<>|]', '', title)
 
 def download_audio(link):
+    # Extract info to get title
+    with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+        info = ydl.extract_info(link, download=False)
+        title = sanitize_filename(info['title'])
+        safe_title = slugify(title)
+        filename_wo_ext = safe_title  # No .mp3 here
+        output_path = os.path.join(settings.MEDIA_ROOT, filename_wo_ext)
+
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
-        'outtmpl': os.path.join(settings.MEDIA_ROOT, '%(title)s.%(ext)s'),
+        'outtmpl': output_path,  # No extension!
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
@@ -73,13 +90,11 @@ def download_audio(link):
     }
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(link, download=True)
-        title = sanitize_filename(info['title'])
-        safe_title = slugify(title)
-        filename = f"{safe_title}.mp3"
-        return os.path.join(settings.MEDIA_ROOT, filename)
+        ydl.download([link])
 
-def get_transcriptin(link):
+    return os.path.join(settings.MEDIA_ROOT, f"{safe_title}.mp3")
+
+def get_transcription(link):
     audio_file = download_audio(link)
     aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
     config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.best)
@@ -90,6 +105,23 @@ def get_transcriptin(link):
         raise RuntimeError(f"Transcription failed: {transcript.error}")   
 
     return transcript.text
+
+
+def generate_blog_from_transcription(transcription):
+    prompt = (
+        "Based on the following transcript from a YouTube video, write a comprehensive blog article. "
+        "Make it look like a proper blog post, not a transcript or a video summary.\n\n"
+        f"{transcription}"
+    )
+
+    chat_completion = client.chat.completions.create(
+        model="llama3-8b-8192",
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
+    )
+
+    return chat_completion.choices[0].message.content.strip()
 
 def user_login(request):
     if request.method == 'POST':
