@@ -15,6 +15,7 @@ import re
 import assemblyai as aai
 from groq import Groq
 from .models import BlogPost
+from markdown import markdown
 
 client = Groq(api_key=settings.GROQ_API_KEY)
 
@@ -188,6 +189,7 @@ def blog_list(request):
 def blog_details(request, pk):
     blog_article_detail = BlogPost.objects.get(id=pk)
     if request.user == blog_article_detail.user:
-        return render(request, 'blog-details.html', {'blog_article_detail':blog_article_detail})
+        blog_article_detail.generated_content = markdown(blog_article_detail.generated_content)
+        return render(request, 'blog-details.html', {'blog_article_detail': blog_article_detail})
     else:
         return redirect('/')
