@@ -14,6 +14,7 @@ import yt_dlp
 import re
 import assemblyai as aai
 from groq import Groq
+from .models import BlogPost
 
 client = Groq(api_key=settings.GROQ_API_KEY)
 
@@ -29,7 +30,6 @@ def generate_blog(request):
             print('View fn acessed')
             data = json.loads(request.body)
             yt_link = data['link']
-            # return JsonResponse({'content': yt_link})
         except(KeyError, json.JSONDecodeError):
             return JsonResponse({'error':'Invalid data sent'}, status=400)
         
@@ -49,7 +49,14 @@ def generate_blog(request):
             return JsonResponse({'error': "Failed to generate blog article"}, status=500)
         
         #save blog article to database
-
+        new_blog_article = BlogPost.objects.create(
+            user=request.user,
+            youtube_title=title,
+            youtube_link=yt_link,
+            generated_content=blog_content,
+        )
+        new_blog_article.save()
+        
         #return blog article as a response
         return JsonResponse({'content':blog_content})
 
@@ -174,3 +181,13 @@ def user_logout(request):
    logout(request)
    return redirect('/')
     
+def blog_list(request):
+    blog_articles = BlogPost.objects.filter(user=request.user)
+    return render(request, 'all-blogs.html', {'blog_articles':blog_articles})
+
+def blog_details(request, pk):
+    blog_article_detail = BlogPost.objects.get(id=pk)
+    if request.user == blog_article_detail.user:
+        return render(request, 'blog-details.html', {'blog_article_detail':blog_article_detail})
+    else:
+        return redirect('/')
