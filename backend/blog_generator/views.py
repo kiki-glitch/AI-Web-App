@@ -4,11 +4,75 @@ from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from django.db import IntegrityError
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.http import JsonResponse
+from django.utils.text import slugify
+import json
+import os
+import yt_dlp
+import re
 
 # Create your views here.
 @login_required
 def index(request):
     return render(request, 'index.html')
+
+@csrf_exempt
+def generate_blog(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            yt_link = data['link']
+            return JsonResponse({'content': yt_link})
+        except(KeyError, json.JSONDecodeError):
+            return JsonResponse({'error':'Invalid data sent'}, status=400)
+        
+        #get yt title
+        title = yt_title(yt_link)
+        #get transcript
+
+        #use OpenAI to generate the blog
+
+        #save blog article to database
+
+        #return blog article as a response
+
+
+    else:
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+def yt_title(link):
+    ydl_opts = {
+        'quiet': True,
+        'skip_download': True  # Don't download, just extract info
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(link, download=False)
+        return info.get('title')
+
+def sanitize_filename(title):
+    return re.sub(r'[\\/*?:"<>|]', '', title)
+
+def download_audio(link):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'outtmpl': os.path.join(settings.MEDIA_ROOT, '%(title)s.%(ext)s'),
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
+
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(link, download=True)
+        title = sanitize_filename(info['title'])
+        safe_title = slugify(title)
+        filename = f"{safe_title}.mp3"
+        return os.path.join(settings.MEDIA_ROOT, filename)
 
 def user_login(request):
     if request.method == 'POST':
