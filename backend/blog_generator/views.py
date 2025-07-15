@@ -12,6 +12,7 @@ import json
 import os
 import yt_dlp
 import re
+import assemblyai as aai
 
 # Create your views here.
 @login_required
@@ -24,14 +25,18 @@ def generate_blog(request):
         try:
             data = json.loads(request.body)
             yt_link = data['link']
-            return JsonResponse({'content': yt_link})
+            # return JsonResponse({'content': yt_link})
         except(KeyError, json.JSONDecodeError):
             return JsonResponse({'error':'Invalid data sent'}, status=400)
         
         #get yt title
         title = yt_title(yt_link)
-        #get transcript
 
+        #get transcript
+        transcription = get_transcription(yt_link)
+        if not transcription:
+            return JsonResponse({'error': " Failed to get transcript"}, status=500)
+        
         #use OpenAI to generate the blog
 
         #save blog article to database
@@ -73,6 +78,18 @@ def download_audio(link):
         safe_title = slugify(title)
         filename = f"{safe_title}.mp3"
         return os.path.join(settings.MEDIA_ROOT, filename)
+
+def get_transcriptin(link):
+    audio_file = download_audio(link)
+    aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
+    config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.best)
+
+    transcript = aai.Transcriber(config=config).transcribe(audio_file)
+
+    if transcript.status == "error":
+        raise RuntimeError(f"Transcription failed: {transcript.error}")   
+
+    return transcript.text
 
 def user_login(request):
     if request.method == 'POST':

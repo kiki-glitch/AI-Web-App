@@ -138,3 +138,6 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_URL = 'login'
+
+# ASSEMBLYAI_API_KEY = os.getenv("ASSEMBLYAI_API_KEY", "")
+ASSEMBLYAI_API_KEY = "03fda5f913214c55b16e833846c67d13"
