@@ -1,3 +1,4 @@
+
 # 🧠 AI Blog Generator Web App
 
 A Django-powered web application that takes a YouTube link, extracts the video transcript using AssemblyAI, and generates a well-written blog article using the Groq AI platform (LLaMA3 model). It supports Markdown-to-HTML formatting and lets users save and view blog posts.
@@ -33,24 +34,27 @@ A Django-powered web application that takes a YouTube link, extracts the video t
 ```bash
 git clone https://github.com/your-username/ai_blog_app.git
 cd ai_blog_app/backend
+```
 
-🐍 2. Set Up a Virtual Environment
+### 🐍 2. Set Up a Virtual Environment
 
+```bash
 python -m venv venv
 venv\Scripts\activate  # On Windows
 # source venv/bin/activate  # On macOS/Linux
+```
 
-📥 3. Install Dependencies
-bash
-Copy
-Edit
+### 📥 3. Install Dependencies
+
+```bash
 pip install -r requirements.txt
-⚙️ 4. Configure Environment Variables
-Rename .env.template to .env and fill in your secrets:
+```
 
-env
-Copy
-Edit
+### ⚙️ 4. Configure Environment Variables
+
+Rename `.env.template` to `.env` and fill in your secrets:
+
+```env
 ASSEMBLYAI_API_KEY=your-key-here
 GROQ_API_KEY=your-key-here
 DJANGO_SECRET_KEY=your-django-secret
@@ -59,16 +63,20 @@ DB_USER=your-db-user
 DB_PASSWORD=your-db-password
 DB_HOST=localhost
 DB_PORT=5432
-🧰 5. Run Migrations and Start the Server
-bash
-Copy
-Edit
+```
+
+### 🧰 5. Run Migrations and Start the Server
+
+```bash
 python manage.py migrate
 python manage.py runserver
-🖼️ Folder Structure (Simplified)
-bash
-Copy
-Edit
+```
+
+---
+
+## 🖼️ Folder Structure (Simplified)
+
+```
 ai_blog_app/
 │
 ├── backend/
@@ -79,19 +87,26 @@ ai_blog_app/
 │   ├── .env                   # Env variables (excluded from Git)
 │   ├── requirements.txt       # Python dependencies
 │   └── manage.py
-🙋‍♂️ Author
-Alex Kariuki
-Full-Stack Developer • Python & Django Enthusiast
-LinkedIn
+```
 
-📜 License
+---
+
+## 🙋‍♂️ Author
+
+**Alex Kariuki**  
+Full-Stack Developer • Python & Django Enthusiast  
+[LinkedIn](https://www.linkedin.com/in/alex-kariuki-56899b219/)
+
+---
+
+## 📜 License
+
 This project is for learning and portfolio purposes. You are free to fork and extend it.
 
-✅ Next Steps
- Add blog post editing or export
+---
 
- Add dark mode theme
+## ✅ Next Steps
 
- Dockerize for easier deployment
-
-
+- [ ] Add blog post editing or export
+- [ ] Add dark mode theme
+- [ ] Dockerize for easier deployment
