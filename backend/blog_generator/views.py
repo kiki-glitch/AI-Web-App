@@ -132,6 +132,9 @@ def generate_blog_from_transcription(transcription):
     return chat_completion.choices[0].message.content.strip()
 
 def user_login(request):
+    if request.user.is_authenticated:
+        return redirect('/') 
+    
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
@@ -150,6 +153,9 @@ def user_login(request):
     return render(request, 'login.html')
 
 def user_signup(request):
+    if request.user.is_authenticated:
+        return redirect('/') 
+    
     if request.method == 'POST':
         username=request.POST['username']
         email=request.POST['email']
