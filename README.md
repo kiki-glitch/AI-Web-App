@@ -110,3 +110,9 @@ This project is for learning and portfolio purposes. You are free to fork and ex
 - [ ] Add blog post editing or export
 - [ ] Add dark mode theme
 - [ ] Dockerize for easier deployment
+- [ ] Use Celery + Redis to handle YouTube download, transcription, and blog generation in the background. This avoids long wait times during form submission.
+- [ ] Limit YouTube video length (e.g. max 10 minutes) to speed up API calls.
+
+- [ ] Cache processed YouTube links by ID to reuse previous outputs.
+
+- [ ] Add performance profiling to each step to track slow operations.
