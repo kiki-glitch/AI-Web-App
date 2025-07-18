@@ -131,7 +131,7 @@ def generate_blog_from_transcription(transcription):
 
     return chat_completion.choices[0].message.content.strip()
 
-def user_login(request):
+def user_login(request):    
     if request.user.is_authenticated:
         return redirect('/') 
     
@@ -139,6 +139,7 @@ def user_login(request):
         username = request.POST['username']
         password = request.POST['password']
         
+
         if not username or not password:
             error_message = 'All fields are required.'
             return render(request, 'login.html', {'error_message': error_message})
