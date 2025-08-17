@@ -1,4 +1,5 @@
 */venv/
 */media/
 */.env
-txt
+.txt
+db.sqlite3
