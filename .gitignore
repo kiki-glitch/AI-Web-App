@@ -2,7 +2,7 @@
 */media/
 */.env
 txt
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+*/__pycache__/
+*/*.pyc
+*/*.pyo
+*/*.pyd
