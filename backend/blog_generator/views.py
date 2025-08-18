@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
@@ -10,10 +10,12 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.db.models import Q
 from django.core.paginator import Paginator
+from django.utils.safestring import mark_safe
 import json
 import os
 import yt_dlp
 import re
+import bleach
 import assemblyai as aai
 from groq import Groq
 from .models import BlogPost
@@ -349,10 +351,28 @@ def blog_list(request):
         {"page_obj": page_obj, "q": q, "total": qs.count()},
     )
 
+@login_required
 def blog_details(request, pk):
-    blog_article_detail = BlogPost.objects.get(id=pk)
-    if request.user == blog_article_detail.user:
-        blog_article_detail.generated_content = markdown(blog_article_detail.generated_content)
-        return render(request, 'blog-details.html', {'blog_article_detail': blog_article_detail})
-    else:
-        return redirect('/')
+    # Owner-only + 404 if not found or not owner (safer than redirecting)
+    article = get_object_or_404(BlogPost, id=pk, user=request.user)
+
+    # Convert Markdown to HTML
+    html = markdown(article.generated_content or "")
+
+    # Sanitize the HTML so we can safely render with |safe
+    allowed_tags = [
+        "p","pre","h1","h2","h3","h4","h5","h6",
+        "ul","ol","li","strong","em","code","blockquote",
+        "hr","br","a"
+    ]
+    allowed_attrs = {"a": ["href","title","target","rel"]}
+    safe_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attrs, strip=True)
+
+    return render(
+        request,
+        "blog-details.html",
+        {
+            "article": article,                # for title/link/date
+            "article_html": mark_safe(safe_html),  # sanitized HTML
+        },
+    )
