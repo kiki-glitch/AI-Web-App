@@ -1,17 +1,22 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from django.db import IntegrityError
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.http import JsonResponse
-from django.utils.text import slugify
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
+from django.db.models import Q
+from django.core.paginator import Paginator
+from django.utils.safestring import mark_safe
+from django.templatetags.static import static
 import json
 import os
 import yt_dlp
 import re
+import bleach
 import assemblyai as aai
 from groq import Groq
 from .models import BlogPost
@@ -27,8 +32,22 @@ client = Groq(api_key=settings.GROQ_API_KEY)
 
 # Create your views here.
 @login_required
+@ensure_csrf_cookie
 def index(request):
     return render(request, 'index.html')
+
+def site_manifest(request):
+    return JsonResponse({
+        "name": "AI Blog Generator",
+        "short_name": "AI Blog",
+        "icons": [
+            {"src": static("branding/android-chrome-192x192.png"), "sizes": "192x192", "type": "image/png"},
+            {"src": static("branding/android-chrome-512x512.png"), "sizes": "512x512", "type": "image/png"},
+        ],
+        "theme_color": "#6c5ce7",
+        "background_color": "#6c5ce7",
+        "display": "standalone",
+    })
 
 def _ensure_cookiefile_from_env():
     """
@@ -48,6 +67,12 @@ def _yt_dlp_opts_base(extra):
     Common yt-dlp options: retries, polite pacing, mobile/web clients,
     direct audio containers (no ffmpeg), and optional cookies.
     """
+    cookie_file = _ensure_cookiefile_from_env()
+
+    # If we have cookies, we must use the WEB client (iOS/Android ignore cookies)
+    # If we don't have cookies, prefer iOS (tends to avoid SABR/PO issues)
+    player_clients = ["web"] if cookie_file else ["ios"]
+
     opts = {
         "quiet": True,
         "noplaylist": True,
@@ -60,7 +85,7 @@ def _yt_dlp_opts_base(extra):
         # Download an audio container directly to avoid ffmpeg dependency
         "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
     }
-    cookie_file = _ensure_cookiefile_from_env()
+    
     if cookie_file:
         opts["cookiefile"] = cookie_file
     if extra:
@@ -188,7 +213,8 @@ def get_transcription(link: str):
     audio_file = download_audio(link)
     return transcribe_via_assemblyai(audio_file)
 
-@csrf_exempt  # (kept for now; see notes below)
+@csrf_protect
+@require_POST
 def generate_blog(request):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -324,14 +350,43 @@ def user_logout(request):
    logout(request)
    return redirect('/')
     
+@login_required
 def blog_list(request):
-    blog_articles = BlogPost.objects.filter(user=request.user)
-    return render(request, 'all-blogs.html', {'blog_articles':blog_articles})
+    qs = BlogPost.objects.filter(user=request.user).order_by("-created_at")
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(Q(youtube_title__icontains=q) | Q(generated_content__icontains=q))
 
+    paginator = Paginator(qs, 10)  # 10 per page
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "all-blogs.html",
+        {"page_obj": page_obj, "q": q, "total": qs.count()},
+    )
+
+@login_required
 def blog_details(request, pk):
-    blog_article_detail = BlogPost.objects.get(id=pk)
-    if request.user == blog_article_detail.user:
-        blog_article_detail.generated_content = markdown(blog_article_detail.generated_content)
-        return render(request, 'blog-details.html', {'blog_article_detail': blog_article_detail})
-    else:
-        return redirect('/')
+    # Owner-only + 404 if not found or not owner (safer than redirecting)
+    article = get_object_or_404(BlogPost, id=pk, user=request.user)
+
+    # Convert Markdown to HTML
+    html = markdown(article.generated_content or "")
+
+    # Sanitize the HTML so we can safely render with |safe
+    allowed_tags = [
+        "p","pre","h1","h2","h3","h4","h5","h6",
+        "ul","ol","li","strong","em","code","blockquote",
+        "hr","br","a"
+    ]
+    allowed_attrs = {"a": ["href","title","target","rel"]}
+    safe_html = bleach.clean(html, tags=allowed_tags, attributes=allowed_attrs, strip=True)
+
+    return render(
+        request,
+        "blog-details.html",
+        {
+            "article": article,                # for title/link/date
+            "article_html": mark_safe(safe_html),  # sanitized HTML
+        },
+    )
