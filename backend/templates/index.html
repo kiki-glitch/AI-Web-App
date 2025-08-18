@@ -1,461 +1,429 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Blog Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-        
-        * {
-            font-family: 'Inter', sans-serif;
-        }
-        
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            position: relative;
-        }
-        
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="%23ffffff" opacity="0.05"/><circle cx="75" cy="75" r="1.5" fill="%23ffffff" opacity="0.03"/><circle cx="50" cy="10" r="0.5" fill="%23ffffff" opacity="0.08"/><circle cx="20" cy="80" r="1" fill="%23ffffff" opacity="0.04"/><circle cx="80" cy="30" r="1.2" fill="%23ffffff" opacity="0.06"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>') repeat;
-            pointer-events: none;
-            z-index: -1;
-        }
-        
-        .glass {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 25px 45px rgba(0, 0, 0, 0.1);
-        }
-        
-        .glass-nav {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(30px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #ff5252, #e91e63);
-            transform: translateY(-2px);
-            box-shadow: 0 20px 40px rgba(255, 107, 107, 0.4);
-        }
-        
-        .input-field {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            transition: all 0.3s ease;
-        }
-        
-        .input-field:focus {
-            background: rgba(255, 255, 255, 0.95);
-            border-color: rgba(255, 107, 107, 0.8);
-            box-shadow: 0 0 30px rgba(255, 107, 107, 0.2);
-            outline: none;
-        }
-        
-        .animate-float {
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        .animate-float-delayed {
-            animation: float 6s ease-in-out infinite;
-            animation-delay: 2s;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0px) rotate(0deg); }
-            50% { transform: translateY(-20px) rotate(2deg); }
-        }
-        
-        .loading-dots {
-            display: flex;
-            gap: 8px;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .loading-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, #ff6b6b, #ee5a6f);
-            animation: loading-bounce 1.4s ease-in-out infinite both;
-        }
-        
-        .loading-dot:nth-child(1) { animation-delay: -0.32s; }
-        .loading-dot:nth-child(2) { animation-delay: -0.16s; }
-        
-        @keyframes loading-bounce {
-            0%, 80%, 100% {
-                transform: scale(0);
-                opacity: 0.5;
-            } 
-            40% {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-        
-        .blog-content {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(15px);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-        
-        .blog-content h1, .blog-content h2, .blog-content h3 {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        
-        .icon-bounce {
-            animation: icon-bounce 2s infinite;
-        }
-        
-        @keyframes icon-bounce {
-            0%, 20%, 53%, 80%, 100% {
-                transform: translate3d(0,0,0);
-            }
-            40%, 43% {
-                transform: translate3d(0, -10px, 0);
-            }
-            70% {
-                transform: translate3d(0, -5px, 0);
-            }
-            90% {
-                transform: translate3d(0, -2px, 0);
-            }
-        }
-        
-        .nav-link {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .nav-link::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: -100%;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, #ff6b6b, #ee5a6f);
-            transition: left 0.3s ease;
-        }
-        
-        .nav-link:hover::before {
-            left: 0;
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.8s ease-out;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#6c5ce7"/>
+  <title>AI Blog Generator</title>
+
+  <!-- Tailwind (no defer so utilities are ready on first paint) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
+
+  <!-- (Optional but recommended) Sanitizer for model output -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script> -->
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    body {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh; position: relative;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="%23ffffff" opacity="0.05"/><circle cx="75" cy="75" r="1.5" fill="%23ffffff" opacity="0.03"/><circle cx="50" cy="10" r="0.5" fill="%23ffffff" opacity="0.08"/><circle cx="20" cy="80" r="1" fill="%23ffffff" opacity="0.04"/><circle cx="80" cy="30" r="1.2" fill="%23ffffff" opacity="0.06"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>') repeat;
+      pointer-events: none; z-index: -1;
+    }
+    .glass { background: rgba(255,255,255,0.1); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 25px 45px rgba(0,0,0,0.1); }
+    .glass-nav { background: rgba(255,255,255,0.05); backdrop-filter: blur(30px); border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .btn-primary { background: linear-gradient(135deg, #ff6b6b, #ee5a6f); transition: all .3s cubic-bezier(.4,0,.2,1); }
+    .btn-primary:hover { background: linear-gradient(135deg, #ff5252, #e91e63); transform: translateY(-2px); box-shadow: 0 20px 40px rgba(255,107,107,.4); }
+    .input-field { background: rgba(255,255,255,.9); backdrop-filter: blur(10px); border: 2px solid rgba(255,255,255,.3); transition: all .3s ease; }
+    .input-field:focus { background: rgba(255,255,255,.95); border-color: rgba(255,107,107,.8); box-shadow: 0 0 30px rgba(255,107,107,.2); outline: none; }
+    .animate-float { animation: float 6s ease-in-out infinite; }
+    .animate-float-delayed { animation: float 6s ease-in-out infinite; animation-delay: 2s; }
+    @keyframes float { 0%,100%{transform:translateY(0) rotate(0)} 50%{transform:translateY(-20px) rotate(2deg)} }
+    .loading-dots { display:flex; gap:8px; justify-content:center; align-items:center; }
+    .loading-dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(45deg,#ff6b6b,#ee5a6f); animation: loading-bounce 1.4s ease-in-out infinite both; }
+    .loading-dot:nth-child(1){animation-delay:-.32s} .loading-dot:nth-child(2){animation-delay:-.16s}
+    @keyframes loading-bounce { 0%,80%,100%{transform:scale(0);opacity:.5} 40%{transform:scale(1);opacity:1} }
+    .blog-content { background: rgba(255,255,255,.95); backdrop-filter: blur(15px); border-radius:20px; border:1px solid rgba(255,255,255,.3); }
+    .blog-content h1,.blog-content h2,.blog-content h3 { background: linear-gradient(135deg,#667eea,#764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .icon-bounce { animation: icon-bounce 2s infinite; }
+    @keyframes icon-bounce{0%,20%,53%,80%,100%{transform:translate3d(0,0,0)}40%,43%{transform:translate3d(0,-10px,0)}70%{transform:translate3d(0,-5px,0)}90%{transform:translate3d(0,-2px,0)}}
+    .nav-link{position:relative;overflow:hidden}
+    .nav-link::before{content:'';position:absolute;bottom:0;left:-100%;width:100%;height:2px;background:linear-gradient(90deg,#ff6b6b,#ee5a6f);transition:left .3s ease}
+    .nav-link:hover::before{left:0}
+    .fade-in{animation:fadeIn .8s ease-out}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes shake {
+      10%,90%{transform:translateX(-1px)}
+      20%,80%{transform:translateX(2px)}
+      30%,50%,70%{transform:translateX(-4px)}
+      40%,60%{transform:translateX(4px)}
+    }
+    /* fix for dynamic class */
+    .shake { animation: shake .5s ease; }
+  </style>
 </head>
 <body class="min-h-screen">
-    <!-- Navigation -->
-    <nav class="glass-nav sticky top-0 z-50 p-6">
-        <div class="container mx-auto flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center">
-                    <i class="fas fa-robot text-white text-lg"></i>
-                </div>                
-                <a href="/"><h1 class="text-2xl font-bold text-white">AI Blog Generator</h1></a>
-            </div>
-            <div class="flex items-center space-x-6">
-                <a href="#" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
-                    <i class="fas fa-user mr-2"></i>Welcome {{user.username}}
-                </a>
-                <a href="/blog-list" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
-                    <i class="fas fa-bookmark mr-2"></i>Saved Posts
-                </a>
-                <a href="logout" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
-                    <i class="fas fa-sign-out-alt mr-2"></i>Logout
-                </a>
-            </div>
+  <!-- Navigation -->
+  <nav class="glass-nav sticky top-0 z-50 p-6">
+    <div class="container mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-purple-600 rounded-xl flex items-center justify-center">
+          <i class="fas fa-robot text-white text-lg"></i>
         </div>
-    </nav>
-
-    <!-- Hero Section -->
-    <div class="container mx-auto px-6 py-16">
-        <!-- Floating decoration elements -->
-        <div class="absolute top-20 left-10 w-20 h-20 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full opacity-20 animate-float"></div>
-        <div class="absolute top-40 right-20 w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full opacity-20 animate-float-delayed"></div>
-        
-        <div class="max-w-4xl mx-auto">
-            <!-- Main Card -->
-            <div class="glass rounded-3xl p-8 md:p-12 fade-in">
-                <!-- Header Section -->
-                <div class="text-center mb-12">
-                    <div class="mb-6">
-                        <i class="fas fa-magic text-6xl text-white icon-bounce"></i>
-                    </div>
-                    <h2 class="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-                        Transform YouTube Videos into
-                        <span class="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
-                            Stunning Blogs
-                        </span>
-                    </h2>
-                    <p class="text-xl text-gray-200 max-w-2xl mx-auto leading-relaxed">
-                        Harness the power of artificial intelligence to convert any YouTube video into a professionally written blog article in seconds.
-                    </p>
-                </div>
-
-                <!-- Input Section -->
-                <div class="mb-12">
-                    <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
-                        <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
-                            <i class="fab fa-youtube text-red-500 mr-3 text-3xl"></i>
-                            Enter YouTube Video Link
-                        </h3>
-                        
-                        <div class="flex flex-col md:flex-row gap-4">
-                            <div class="flex-1 relative">
-                                <i class="fas fa-link absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                                <input 
-                                    id="youtubeLink" 
-                                    type="url" 
-                                    placeholder="https://youtube.com/watch?v=..." 
-                                    class="input-field w-full pl-12 pr-4 py-4 rounded-xl text-gray-800 text-lg font-medium"
-                                >
-                            </div>
-                            <button 
-                                id="generateBlogButton" 
-                                class="btn-primary px-8 py-4 rounded-xl text-white font-semibold text-lg shadow-lg flex items-center justify-center space-x-3 min-w-[160px]"
-                            >
-                                <i class="fas fa-sparkles"></i>
-                                <span>Generate</span>
-                            </button>
-                        </div>
-                        
-                        <!-- Tips -->
-                        <div class="mt-6 flex flex-wrap gap-4 text-sm text-gray-300">
-                            <div class="flex items-center space-x-2">
-                                <i class="fas fa-check-circle text-green-400"></i>
-                                <span>Works with any public YouTube video</span>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <i class="fas fa-clock text-blue-400"></i>
-                                <span>Generated in under 30 seconds</span>
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <i class="fas fa-shield-alt text-purple-400"></i>
-                                <span>Free to use</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Loading Section -->
-                <div id="loading-section" class="hidden mb-12">
-                    <div class="text-center py-12">
-                        <div class="loading-dots mb-6">
-                            <div class="loading-dot"></div>
-                            <div class="loading-dot"></div>
-                            <div class="loading-dot"></div>
-                        </div>
-                        <h3 class="text-xl font-semibold text-white mb-2">Creating your blog article...</h3>
-                        <p class="text-gray-300">This may take a moment while we analyze the video content</p>
-                    </div>
-                </div>
-
-                <!-- Generated Blog Section -->
-                <div id="blog-section" class="hidden">
-                    <div class="flex items-center justify-between mb-6">
-                        <h3 class="text-2xl font-bold text-white flex items-center">
-                            <i class="fas fa-file-alt mr-3 text-green-400"></i>
-                            Generated Blog Article
-                        </h3>
-                        <button id="copyButton" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center space-x-2">
-                            <i class="fas fa-copy"></i>
-                            <span>Copy</span>
-                        </button>
-                    </div>
-                    
-                    <div id="blogContent" class="blog-content p-8 rounded-2xl shadow-2xl">
-                        <!-- Generated content will appear here -->
-                    </div>
-                    
-                    <!-- Action buttons -->
-                    <div class="flex flex-wrap gap-4 mt-6 justify-center">
-                        <button class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2">
-                            <i class="fas fa-download"></i>
-                            <span>Download as PDF</span>
-                        </button>
-                        <button class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2">
-                            <i class="fas fa-share-alt"></i>
-                            <span>Share</span>
-                        </button>
-                        <button id="newBlogButton" class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2">
-                            <i class="fas fa-plus"></i>
-                            <span>Generate New</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <a href="/"><h1 class="text-2xl font-bold text-white">AI Blog Generator</h1></a>
+      </div>
+      <div class="flex items-center space-x-6">
+        <a href="#" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
+          <i class="fas fa-user mr-2"></i>Welcome {{user.username}}
+        </a>
+        <a href="/blog-list" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
+          <i class="fas fa-bookmark mr-2"></i>Saved Posts
+        </a>
+        <a href="logout" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
+          <i class="fas fa-sign-out-alt mr-2"></i>Logout
+        </a>
+      </div>
     </div>
+  </nav>
 
-    <!-- Footer -->
-    <footer class="text-center py-8 text-white/80">
-        <p class="text-lg">
-            Crafted with <i class="fas fa-heart text-red-400 mx-1"></i> by 
-            <a href="https://alexwamaidev.netlify.app" class="text-pink-300 hover:text-pink-200 transition-colors font-semibold">AlexDev</a>
-        </p>
-    </footer>
+  <!-- Hero Section -->
+  <div class="container mx-auto px-6 py-16 relative">
+    <!-- Floating decoration elements -->
+    <div class="absolute -z-10 top-20 left-10 w-20 h-20 bg-gradient-to-br from-pink-400 to-purple-500 rounded-full opacity-20 animate-float"></div>
+    <div class="absolute -z-10 top-40 right-20 w-16 h-16 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full opacity-20 animate-float-delayed"></div>
 
-    <script>
-        document.getElementById('generateBlogButton').addEventListener('click', async() => {
-            const youtubeLink = document.getElementById('youtubeLink').value;
-            const loadingSection = document.getElementById('loading-section');
-            const blogSection = document.getElementById('blog-section');
-            const blogContent = document.getElementById('blogContent');
-            
-            if(youtubeLink && youtubeLink.includes('youtube.com') || youtubeLink.includes('youtu.be')) {
-                // Show loading
-                loadingSection.classList.remove('hidden');
-                blogSection.classList.add('hidden');
-                
-                // Clear previous content
-                blogContent.innerHTML = '';
+    <div class="max-w-4xl mx-auto">
+      <div class="glass rounded-3xl p-8 md:p-12 fade-in">
+        <!-- Header -->
+        <div class="text-center mb-12">
+          <div class="mb-6">
+            <i class="fas fa-magic text-6xl text-white icon-bounce"></i>
+          </div>
+          <h2 class="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
+            Transform YouTube Videos into
+            <span class="bg-gradient-to-r from-pink-400 to-purple-400 bg-clip-text text-transparent">
+              Stunning Blogs
+            </span>
+          </h2>
+          <p class="text-xl text-gray-200 max-w-2xl mx-auto leading-relaxed">
+            Harness the power of artificial intelligence to convert any YouTube video into a professionally written blog article in seconds.
+          </p>
+        </div>
 
-                const endpointUrl = '/generate-blog';
+        <!-- Input Section -->
+        <div class="mb-12">
+          <div class="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20">
+            <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+              <i class="fab fa-youtube text-red-500 mr-3 text-3xl" aria-hidden="true"></i>
+              Enter YouTube Video Link
+            </h3>
 
-                try {
-                    const response = await fetch(endpointUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({link: youtubeLink})
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if(response.ok) {
-                        // Format the content with proper HTML structure
-                        const formattedContent = formatBlogContent(data.content);
-                        blogContent.innerHTML = formattedContent;
-                        
-                        // Hide loading and show blog
-                        loadingSection.classList.add('hidden');
-                        blogSection.classList.remove('hidden');
-                        
-                        // Smooth scroll to blog section
-                        blogSection.scrollIntoView({ behavior: 'smooth' });
-                    } else {
-                        throw new Error(data.error || 'Failed to generate blog');
-                    }
-                    
-                } catch (error) {
-                    console.log("Error occurred:", error);
-                    loadingSection.classList.add('hidden');
-                    
-                    // Show error message
-                    blogContent.innerHTML = `
-                        <div class="text-center py-8">
-                            <i class="fas fa-exclamation-triangle text-red-500 text-4xl mb-4"></i>
-                            <h3 class="text-xl font-semibold text-red-600 mb-2">Oops! Something went wrong</h3>
-                            <p class="text-gray-600">${error.message}</p>
-                            <button onclick="location.reload()" class="mt-4 bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg transition-colors">
-                                Try Again
-                            </button>
-                        </div>
-                    `;
-                    blogSection.classList.remove('hidden');
-                }
-            } else {
-                // Enhanced validation message
-                const inputField = document.getElementById('youtubeLink');
-                inputField.style.borderColor = '#ef4444';
-                inputField.style.boxShadow = '0 0 20px rgba(239, 68, 68, 0.3)';
-                
-                setTimeout(() => {
-                    inputField.style.borderColor = '';
-                    inputField.style.boxShadow = '';
-                }, 3000);
-                
-                alert("Please enter a valid YouTube link (youtube.com or youtu.be)");
-            }
+            <div class="flex flex-col md:flex-row gap-4">
+              <div class="flex-1 relative">
+                <label for="youtubeLink" class="sr-only">YouTube URL</label>
+                <i class="fas fa-link absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true"></i>
+                <input
+                  id="youtubeLink"
+                  type="url"
+                  inputmode="url"
+                  autocomplete="off"
+                  placeholder="https://youtube.com/watch?v=..."
+                  class="input-field w-full pl-12 pr-4 py-4 rounded-xl text-gray-800 text-lg font-medium"
+                  required
+                />
+              </div>
+              <button
+                id="generateBlogButton"
+                class="btn-primary px-8 py-4 rounded-xl text-white font-semibold text-lg shadow-lg flex items-center justify-center gap-3 min-w-[160px]"
+              >
+                <span class="inline-flex items-center gap-3">
+                  <i class="fas fa-sparkles" aria-hidden="true"></i>
+                  <span>Generate</span>
+                </span>
+                <span id="genSpinner" class="hidden animate-spin ml-2">
+                  <i class="fas fa-circle-notch"></i>
+                </span>
+              </button>
+            </div>
+
+            <!-- Tips -->
+            <div class="mt-6 flex flex-wrap gap-4 text-sm text-gray-300">
+              <div class="flex items-center gap-2">
+                <i class="fas fa-check-circle text-green-400" aria-hidden="true"></i>
+                <span>Works with any public YouTube video</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-clock text-blue-400" aria-hidden="true"></i>
+                <span>Generated in under 30 seconds</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <i class="fas fa-shield-alt text-purple-400" aria-hidden="true"></i>
+                <span>Free to use</span>
+              </div>
+            </div>
+
+            <p id="inputError" class="mt-4 text-sm text-red-200 hidden">Please enter a valid YouTube link.</p>
+          </div>
+        </div>
+
+        <!-- Loading Section -->
+        <div id="loading-section" class="hidden mb-12" aria-live="polite">
+          <div class="text-center py-12">
+            <div class="loading-dots mb-6">
+              <div class="loading-dot"></div>
+              <div class="loading-dot"></div>
+              <div class="loading-dot"></div>
+            </div>
+            <h3 class="text-xl font-semibold text-white mb-2">Creating your blog article...</h3>
+            <p class="text-gray-300">This may take a moment while we analyze the video content</p>
+          </div>
+        </div>
+
+        <!-- Generated Blog Section -->
+        <div id="blog-section" class="hidden">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold text-white flex items-center">
+              <i class="fas fa-file-alt mr-3 text-green-400" aria-hidden="true"></i>
+              Generated Blog Article
+            </h3>
+            <button id="copyButton" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-all duration-300 flex items-center gap-2">
+              <i class="fas fa-copy" aria-hidden="true"></i>
+              <span>Copy</span>
+            </button>
+          </div>
+
+          <div id="blogContent" class="blog-content p-8 rounded-2xl shadow-2xl">
+            <!-- Generated content will appear here -->
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex flex-wrap gap-4 mt-6 justify-center">
+            <button id="pdfButton" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2">
+              <i class="fas fa-download" aria-hidden="true"></i>
+              <span>Download as PDF</span>
+            </button>
+            <button id="shareButton" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2">
+              <i class="fas fa-share-alt" aria-hidden="true"></i>
+              <span>Share</span>
+            </button>
+            <button id="newBlogButton" class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2">
+              <i class="fas fa-plus" aria-hidden="true"></i>
+              <span>Generate New</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline error area for fetch failures -->
+        <div id="globalError" class="hidden mt-6 rounded-xl border border-red-300/30 bg-red-50/20 p-4 text-red-100">
+          <div class="flex items-start gap-3">
+            <i class="fas fa-exclamation-triangle mt-1"></i>
+            <div>
+              <h4 class="font-semibold">Oops! Something went wrong</h4>
+              <p id="globalErrorMsg" class="opacity-90"></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="text-center py-8 text-white/80">
+    <p class="text-lg">
+      Crafted with <i class="fas fa-heart text-red-400 mx-1"></i> by
+      <a href="https://alexwamaidev.netlify.app" class="text-pink-300 hover:text-pink-200 transition-colors font-semibold">AlexDev</a>
+    </p>
+  </footer>
+
+  <script>
+    // --- Helpers ---
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+    }
+
+    function extractYouTubeId(urlStr) {
+      try {
+        const url = new URL(urlStr.trim());
+        const host = url.hostname.replace(/^www\./, '');
+        if (host === 'youtube.com' || host === 'm.youtube.com') {
+          if (url.searchParams.get('v')) return url.searchParams.get('v');
+          const parts = url.pathname.split('/');
+          const idx = parts.findIndex(p => p === 'shorts' || p === 'live' || p === 'embed');
+          if (idx !== -1 && parts[idx+1]) return parts[idx+1];
+        }
+        if (host === 'youtu.be') {
+          const id = url.pathname.slice(1);
+          if (id) return id;
+        }
+        return null;
+      } catch { return null; }
+    }
+
+    function show(el){ el.classList.remove('hidden'); }
+    function hide(el){ el.classList.add('hidden'); }
+
+    // Escape → structure headings/paragraphs → (optional) sanitize
+    function formatBlogContent(raw) {
+      const escaped = String(raw)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
+
+      let html = escaped
+        .replace(/^# (.+)$/gm, '<h1 class="text-3xl font-bold mb-6 mt-8">$1</h1>')
+        .replace(/^## (.+)$/gm, '<h2 class="text-2xl font-semibold mb-4 mt-6">$1</h2>')
+        .replace(/^### (.+)$/gm, '<h3 class="text-xl font-medium mb-3 mt-4">$1</h3>')
+        .replace(/\n\n/g, '</p><p class="mb-4">')
+        .replace(/\n/g, '<br>');
+
+      html = '<p class="mb-4">' + html + '</p>';
+      // If using DOMPurify:
+      // return DOMPurify.sanitize(html);
+      return html;
+    }
+
+    // --- Elements ---
+    const youtubeInput = document.getElementById('youtubeLink');
+    const generateBtn = document.getElementById('generateBlogButton');
+    const genSpinner = document.getElementById('genSpinner');
+    const inputError = document.getElementById('inputError');
+
+    const loadingSection = document.getElementById('loading-section');
+    const blogSection = document.getElementById('blog-section');
+    const blogContent = document.getElementById('blogContent');
+
+    const copyButton = document.getElementById('copyButton');
+    const newBlogButton = document.getElementById('newBlogButton');
+    const pdfButton = document.getElementById('pdfButton');
+    const shareButton = document.getElementById('shareButton');
+
+    const globalError = document.getElementById('globalError');
+    const globalErrorMsg = document.getElementById('globalErrorMsg');
+
+    // --- Actions ---
+    generateBtn.addEventListener('click', onGenerate);
+    youtubeInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') generateBtn.click();
+    });
+
+    async function onGenerate() {
+      hide(globalError);
+      const url = youtubeInput.value;
+      const videoId = extractYouTubeId(url);
+
+      if (!videoId) {
+        showValidationError();
+        return;
+      }
+
+      // UI state
+      generateBtn.disabled = true;
+      show(genSpinner);
+      hide(blogSection);
+      show(loadingSection);
+      blogContent.innerHTML = '';
+
+      const endpointUrl = '/generate-blog';
+      try {
+        const response = await fetch(endpointUrl, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken') || ''
+          },
+          body: JSON.stringify({
+            link: url,       // keep existing contract
+            // videoId: videoId // (optional) switch your backend to accept this instead
+          })
         });
 
-        // Copy functionality
-        document.getElementById('copyButton').addEventListener('click', async() => {
-            const content = document.getElementById('blogContent').innerText;
-            try {
-                await navigator.clipboard.writeText(content);
-                const copyButton = document.getElementById('copyButton');
-                const originalHTML = copyButton.innerHTML;
-                copyButton.innerHTML = '<i class="fas fa-check"></i><span>Copied!</span>';
-                setTimeout(() => {
-                    copyButton.innerHTML = originalHTML;
-                }, 2000);
-            } catch (err) {
-                console.error('Failed to copy: ', err);
-            }
-        });
+        // Try parse JSON safely
+        let data = null;
+        try { data = await response.json(); }
+        catch { /* Non-JSON error; handled below */ }
 
-        // New blog functionality
-        document.getElementById('newBlogButton').addEventListener('click', () => {
-            document.getElementById('youtubeLink').value = '';
-            document.getElementById('blog-section').classList.add('hidden');
-            document.getElementById('youtubeLink').focus();
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        });
-
-        // Format blog content for better presentation
-        function formatBlogContent(content) {
-            // Simple formatting - you can enhance this based on your needs
-            let formatted = content
-                .replace(/\n\n/g, '</p><p class="mb-4">')
-                .replace(/\n/g, '<br>');
-            
-            // Add paragraph tags
-            formatted = '<p class="mb-4">' + formatted + '</p>';
-            
-            // Format headings (simple approach)
-            formatted = formatted.replace(/^# (.+)$/gm, '<h1 class="text-3xl font-bold mb-6 mt-8">$1</h1>');
-            formatted = formatted.replace(/^## (.+)$/gm, '<h2 class="text-2xl font-semibold mb-4 mt-6">$1</h2>');
-            formatted = formatted.replace(/^### (.+)$/gm, '<h3 class="text-xl font-medium mb-3 mt-4">$1</h3>');
-            
-            return formatted;
+        if (!response.ok) {
+          const errMsg = (data && (data.error || data.detail)) || `Request failed (${response.status})`;
+          throw new Error(errMsg);
         }
 
-        // Enter key support for input
-        document.getElementById('youtubeLink').addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                document.getElementById('generateBlogButton').click();
-            }
-        });
-    </script>
+        const content = (data && data.content) ? data.content : '';
+        const formatted = formatBlogContent(content || 'No content returned.');
+        blogContent.innerHTML = formatted;
+
+        hide(loadingSection);
+        show(blogSection);
+        blogSection.scrollIntoView({ behavior: 'smooth' });
+      } catch (err) {
+        hide(loadingSection);
+        show(blogSection);
+        show(globalError);
+        globalErrorMsg.textContent = err.message || 'Unknown error';
+      } finally {
+        hide(genSpinner);
+        generateBtn.disabled = false;
+      }
+    }
+
+    function showValidationError() {
+      inputError.classList.remove('hidden');
+      youtubeInput.style.borderColor = '#ef4444';
+      youtubeInput.style.boxShadow = '0 0 20px rgba(239,68,68,.3)';
+      youtubeInput.classList.add('shake');
+      setTimeout(() => {
+        inputError.classList.add('hidden');
+        youtubeInput.style.borderColor = '';
+        youtubeInput.style.boxShadow = '';
+        youtubeInput.classList.remove('shake');
+      }, 1600);
+      youtubeInput.focus();
+    }
+
+    // Copy: plain text for editor-friendliness
+    copyButton.addEventListener('click', async () => {
+      const content = document.getElementById('blogContent').innerText;
+      try {
+        await navigator.clipboard.writeText(content);
+        const originalHTML = copyButton.innerHTML;
+        copyButton.innerHTML = '<i class="fas fa-check"></i><span>Copied!</span>';
+        setTimeout(() => { copyButton.innerHTML = originalHTML; }, 1500);
+      } catch (e) { console.error('Failed to copy:', e); }
+    });
+
+    // New blog
+    newBlogButton.addEventListener('click', () => {
+      youtubeInput.value = '';
+      hide(blogSection);
+      youtubeInput.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // PDF (baseline: print dialog)
+    pdfButton.addEventListener('click', () => {
+      window.print();
+      // Or swap to html2pdf.js if you want real PDFs
+    });
+
+    // Share
+    shareButton.addEventListener('click', async () => {
+      const shareData = {
+        title: 'AI Blog Generator',
+        text: 'Check out this blog I just generated from a YouTube video!',
+        url: window.location.href
+      };
+      try {
+        if (navigator.share) {
+          await navigator.share(shareData);
+        } else {
+          await navigator.clipboard.writeText(shareData.url);
+          shareButton.innerHTML = '<i class="fas fa-check"></i><span>Link Copied</span>';
+          setTimeout(() => {
+            shareButton.innerHTML = '<i class="fas fa-share-alt"></i><span>Share</span>';
+          }, 1500);
+        }
+      } catch (e) { console.log('Share dismissed or failed', e); }
+    });
+  </script>
 </body>
 </html>

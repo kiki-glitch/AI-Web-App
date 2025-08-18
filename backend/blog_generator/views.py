@@ -4,10 +4,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from django.db import IntegrityError
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from django.http import JsonResponse
-from django.utils.text import slugify
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
+from django.db.models import Q
+from django.core.paginator import Paginator
 import json
 import os
 import yt_dlp
@@ -27,6 +29,7 @@ client = Groq(api_key=settings.GROQ_API_KEY)
 
 # Create your views here.
 @login_required
+@ensure_csrf_cookie
 def index(request):
     return render(request, 'index.html')
 
@@ -194,7 +197,8 @@ def get_transcription(link: str):
     audio_file = download_audio(link)
     return transcribe_via_assemblyai(audio_file)
 
-@csrf_exempt  # (kept for now; see notes below)
+@csrf_protect
+@require_POST
 def generate_blog(request):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -330,9 +334,20 @@ def user_logout(request):
    logout(request)
    return redirect('/')
     
+@login_required
 def blog_list(request):
-    blog_articles = BlogPost.objects.filter(user=request.user)
-    return render(request, 'all-blogs.html', {'blog_articles':blog_articles})
+    qs = BlogPost.objects.filter(user=request.user).order_by("-created_at")
+    q = request.GET.get("q", "").strip()
+    if q:
+        qs = qs.filter(Q(youtube_title__icontains=q) | Q(generated_content__icontains=q))
+
+    paginator = Paginator(qs, 10)  # 10 per page
+    page_obj = paginator.get_page(request.GET.get("page"))
+    return render(
+        request,
+        "all-blogs.html",
+        {"page_obj": page_obj, "q": q, "total": qs.count()},
+    )
 
 def blog_details(request, pk):
     blog_article_detail = BlogPost.objects.get(id=pk)
