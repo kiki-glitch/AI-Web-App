@@ -8,10 +8,17 @@
 
   <!-- Tailwind (no defer so utilities are ready on first paint) -->
   <script src="https://cdn.tailwindcss.com"></script>
+  {% load static %}
+  <link rel="icon" href="{% static 'branding/favicon.svg' %}" type="image/svg+xml">
+  <link rel="alternate icon" href="{% static 'branding/favicon-32x32.png' %}" sizes="32x32">
+  <link rel="alternate icon" href="{% static 'branding/favicon-16x16.png' %}" sizes="16x16">
+  <link rel="apple-touch-icon" href="{% static 'branding/apple-touch-icon.png' %}" sizes="180x180">
+  <link rel="manifest" href="{% static 'branding/site.webmanifest' %}">
+  <meta name="theme-color" content="#6c5ce7">
+  <!-- Markdown parser + sanitizer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
-
-  <!-- (Optional but recommended) Sanitizer for model output -->
-  <!-- <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.7/dist/purify.min.js"></script> -->
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
@@ -53,8 +60,33 @@
       30%,50%,70%{transform:translateX(-4px)}
       40%,60%{transform:translateX(4px)}
     }
-    /* fix for dynamic class */
     .shake { animation: shake .5s ease; }
+
+    /* Article readability tweaks */
+    .blog-content ul { list-style: disc; padding-left: 1.5rem; margin: .5rem 0 1rem; }
+    .blog-content ol { list-style: decimal; padding-left: 1.5rem; margin: .5rem 0 1rem; }
+    .blog-content li { margin: .25rem 0; }
+    .blog-content blockquote {
+      border-left: 4px solid rgba(102,126,234,.6);
+      padding-left: 1rem;
+      color: #4b5563;
+      background: rgba(255,255,255,.5);
+      border-radius: .5rem;
+      margin: 1rem 0;
+    }
+    .blog-content pre {
+      background: rgba(17,24,39,.92);
+      color: #f8fafc;
+      padding: 1rem;
+      border-radius: .75rem;
+      overflow: auto;
+      margin: 1rem 0;
+    }
+    .blog-content code {
+      background: rgba(0,0,0,.06);
+      padding: .1rem .35rem;
+      border-radius: .375rem;
+    }
   </style>
 </head>
 <body class="min-h-screen">
@@ -74,7 +106,7 @@
         <a href="/blog-list" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
           <i class="fas fa-bookmark mr-2"></i>Saved Posts
         </a>
-        <a href="logout" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
+        <a href="/logout" class="nav-link text-white hover:text-pink-300 transition-colors px-3 py-2 rounded-lg">
           <i class="fas fa-sign-out-alt mr-2"></i>Logout
         </a>
       </div>
@@ -149,7 +181,7 @@
               </div>
               <div class="flex items-center gap-2">
                 <i class="fas fa-clock text-blue-400" aria-hidden="true"></i>
-                <span>Generated in under 30 seconds</span>
+                <span>Generated in under 90 seconds</span>
               </div>
               <div class="flex items-center gap-2">
                 <i class="fas fa-shield-alt text-purple-400" aria-hidden="true"></i>
@@ -193,14 +225,6 @@
 
           <!-- Action buttons -->
           <div class="flex flex-wrap gap-4 mt-6 justify-center">
-            <button id="pdfButton" class="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2">
-              <i class="fas fa-download" aria-hidden="true"></i>
-              <span>Download as PDF</span>
-            </button>
-            <button id="shareButton" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2">
-              <i class="fas fa-share-alt" aria-hidden="true"></i>
-              <span>Share</span>
-            </button>
             <button id="newBlogButton" class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center gap-2">
               <i class="fas fa-plus" aria-hidden="true"></i>
               <span>Generate New</span>
@@ -209,7 +233,7 @@
         </div>
 
         <!-- Inline error area for fetch failures -->
-        <div id="globalError" class="hidden mt-6 rounded-xl border border-red-300/30 bg-red-50/20 p-4 text-red-100">
+        <div id="globalError" class="hidden mt-6 rounded-3xl border border-red-300/30 bg-red-50/20 p-4 text-red-100">
           <div class="flex items-start gap-3">
             <i class="fas fa-exclamation-triangle mt-1"></i>
             <div>
@@ -260,26 +284,50 @@
     function show(el){ el.classList.remove('hidden'); }
     function hide(el){ el.classList.add('hidden'); }
 
-    // Escape → structure headings/paragraphs → (optional) sanitize
+    // Normalize "almost markdown" → Markdown
+    function normalizeToMarkdown(text) {
+      let t = String(text || '').replace(/\r\n/g, '\n');
+
+      // bullets like "• item" → "- item"
+      t = t.replace(/^\s*•\s+/gm, '- ');
+      // fix indented bullets like "-   item"
+      t = t.replace(/^\s*-\s{2,}/gm, '- ');
+      // numbered lists like "1) item" → "1. item"
+      t = t.replace(/^\s*(\d+)\)\s+/gm, '$1. ');
+
+      // headings like "**Key Takeaways:**" → "### Key Takeaways"
+      t = t.replace(/^\s*\*\*(.+?)\*\*:\s*$/gm, '### $1');
+      // headings like "__Summary__" → "### Summary"
+      t = t.replace(/^\s*__([^_].+?)__\s*$/gm, '### $1');
+      // lone bold line "**Heading**" → "### Heading"
+      t = t.replace(/^\s*\*\*([^*].+?)\*\*\s*$/gm, '### $1');
+
+      // collapse >3 blank lines
+      t = t.replace(/\n{3,}/g, '\n\n');
+
+      return t.trim();
+    }
+
+    // Parse Markdown → sanitize → add target attrs
     function formatBlogContent(raw) {
-      const escaped = String(raw)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#039;');
+      const md = normalizeToMarkdown(raw);
 
-      let html = escaped
-        .replace(/^# (.+)$/gm, '<h1 class="text-3xl font-bold mb-6 mt-8">$1</h1>')
-        .replace(/^## (.+)$/gm, '<h2 class="text-2xl font-semibold mb-4 mt-6">$1</h2>')
-        .replace(/^### (.+)$/gm, '<h3 class="text-xl font-medium mb-3 mt-4">$1</h3>')
-        .replace(/\n\n/g, '</p><p class="mb-4">')
-        .replace(/\n/g, '<br>');
+      // Fallback if libs not loaded (keeps older behavior)
+      if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+        let html = md
+          .replace(/^# (.+)$/gm, '<h1 class="text-3xl font-bold mb-6 mt-8">$1</h1>')
+          .replace(/^## (.+)$/gm, '<h2 class="text-2xl font-semibold mb-4 mt-6">$1</h2>')
+          .replace(/^### (.+)$/gm, '<h3 class="text-xl font-medium mb-3 mt-4">$1</h3>')
+          .replace(/\n\n/g, '</p><p class="mb-4">')
+          .replace(/\n/g, '<br>');
+        return '<p class="mb-4">' + html + '</p>';
+      }
 
-      html = '<p class="mb-4">' + html + '</p>';
-      // If using DOMPurify:
-      // return DOMPurify.sanitize(html);
-      return html;
+      marked.setOptions({ gfm: true, breaks: true });
+      const html = marked.parse(md);
+      const clean = DOMPurify.sanitize(html);
+      // open links in new tab
+      return clean.replace(/<a\s/gi, '<a target="_blank" rel="noopener noreferrer" ');
     }
 
     // --- Elements ---
@@ -294,8 +342,6 @@
 
     const copyButton = document.getElementById('copyButton');
     const newBlogButton = document.getElementById('newBlogButton');
-    const pdfButton = document.getElementById('pdfButton');
-    const shareButton = document.getElementById('shareButton');
 
     const globalError = document.getElementById('globalError');
     const globalErrorMsg = document.getElementById('globalErrorMsg');
@@ -397,32 +443,6 @@
       hide(blogSection);
       youtubeInput.focus();
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    // PDF (baseline: print dialog)
-    pdfButton.addEventListener('click', () => {
-      window.print();
-      // Or swap to html2pdf.js if you want real PDFs
-    });
-
-    // Share
-    shareButton.addEventListener('click', async () => {
-      const shareData = {
-        title: 'AI Blog Generator',
-        text: 'Check out this blog I just generated from a YouTube video!',
-        url: window.location.href
-      };
-      try {
-        if (navigator.share) {
-          await navigator.share(shareData);
-        } else {
-          await navigator.clipboard.writeText(shareData.url);
-          shareButton.innerHTML = '<i class="fas fa-check"></i><span>Link Copied</span>';
-          setTimeout(() => {
-            shareButton.innerHTML = '<i class="fas fa-share-alt"></i><span>Share</span>';
-          }, 1500);
-        }
-      } catch (e) { console.log('Share dismissed or failed', e); }
     });
   </script>
 </body>

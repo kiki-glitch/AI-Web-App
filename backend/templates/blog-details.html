@@ -94,12 +94,12 @@
             <button id="copyBtn" class="btn-subtle px-4 py-3 rounded-xl font-semibold transition-all duration-300 inline-flex items-center gap-2">
               <i class="fas fa-copy"></i> Copy
             </button>
-            <button id="shareBtn" class="btn-subtle px-4 py-3 rounded-xl font-semibold transition-all duration-300 inline-flex items-center gap-2">
+            <!-- <button id="shareBtn" class="btn-subtle px-4 py-3 rounded-xl font-semibold transition-all duration-300 inline-flex items-center gap-2">
               <i class="fas fa-share-alt"></i> Share
             </button>
             <button id="pdfBtn" class="btn-primary text-white px-4 py-3 rounded-xl font-semibold transition-all duration-300 inline-flex items-center gap-2">
               <i class="fas fa-download"></i> PDF
-            </button>
+            </button> -->
           </div>
         </div>
       </div>
@@ -137,8 +137,8 @@
   <script>
     // Copy plain text (good for editors)
     const copyBtn = document.getElementById('copyBtn');
-    const shareBtn = document.getElementById('shareBtn');
-    const pdfBtn = document.getElementById('pdfBtn');
+    // const shareBtn = document.getElementById('shareBtn');
+    // const pdfBtn = document.getElementById('pdfBtn');
 
     copyBtn.addEventListener('click', async () => {
       const content = document.getElementById('articleContent').innerText;
@@ -150,27 +150,27 @@
       } catch (e) { console.error('Copy failed', e); }
     });
 
-    shareBtn.addEventListener('click', async () => {
-      const shareData = {
-        title: document.title,
-        text: 'Check out this blog I generated.',
-        url: window.location.href
-      };
-      try {
-        if (navigator.share) {
-          await navigator.share(shareData);
-        } else {
-          await navigator.clipboard.writeText(shareData.url);
-          const original = shareBtn.innerHTML;
-          shareBtn.innerHTML = '<i class="fas fa-check"></i> Link Copied';
-          setTimeout(() => shareBtn.innerHTML = '<i class="fas fa-share-alt"></i> Share', 1500);
-        }
-      } catch (e) { console.log('Share dismissed or failed', e); }
-    });
+    // shareBtn.addEventListener('click', async () => {
+    //   const shareData = {
+    //     title: document.title,
+    //     text: 'Check out this blog I generated.',
+    //     url: window.location.href
+    //   };
+    //   try {
+    //     if (navigator.share) {
+    //       await navigator.share(shareData);
+    //     } else {
+    //       await navigator.clipboard.writeText(shareData.url);
+    //       const original = shareBtn.innerHTML;
+    //       shareBtn.innerHTML = '<i class="fas fa-check"></i> Link Copied';
+    //       setTimeout(() => shareBtn.innerHTML = '<i class="fas fa-share-alt"></i> Share', 1500);
+    //     }
+    //   } catch (e) { console.log('Share dismissed or failed', e); }
+    // });
 
-    pdfBtn.addEventListener('click', () => {
-      window.print(); // baseline; swap to html2pdf.js if you prefer true PDFs
-    });
+    // pdfBtn.addEventListener('click', () => {
+    //   window.print(); // baseline; swap to html2pdf.js if you prefer true PDFs
+    // });
   </script>
 </body>
 </html>

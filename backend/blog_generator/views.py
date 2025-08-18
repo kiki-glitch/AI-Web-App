@@ -11,6 +11,7 @@ from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from django.db.models import Q
 from django.core.paginator import Paginator
 from django.utils.safestring import mark_safe
+from django.templatetags.static import static
 import json
 import os
 import yt_dlp
@@ -34,6 +35,19 @@ client = Groq(api_key=settings.GROQ_API_KEY)
 @ensure_csrf_cookie
 def index(request):
     return render(request, 'index.html')
+
+def site_manifest(request):
+    return JsonResponse({
+        "name": "AI Blog Generator",
+        "short_name": "AI Blog",
+        "icons": [
+            {"src": static("branding/android-chrome-192x192.png"), "sizes": "192x192", "type": "image/png"},
+            {"src": static("branding/android-chrome-512x512.png"), "sizes": "512x512", "type": "image/png"},
+        ],
+        "theme_color": "#6c5ce7",
+        "background_color": "#6c5ce7",
+        "display": "standalone",
+    })
 
 def _ensure_cookiefile_from_env():
     """
