@@ -16,6 +16,12 @@ import assemblyai as aai
 from groq import Groq
 from .models import BlogPost
 from markdown import markdown
+from urllib.parse import urlparse, parse_qs
+from youtube_transcript_api import (
+    YouTubeTranscriptApi,
+    TranscriptsDisabled,
+    NoTranscriptFound,
+)
 
 client = Groq(api_key=settings.GROQ_API_KEY)
 
@@ -24,96 +30,225 @@ client = Groq(api_key=settings.GROQ_API_KEY)
 def index(request):
     return render(request, 'index.html')
 
-@csrf_exempt
-def generate_blog(request):
-    if request.method == 'POST':
+def _ensure_cookiefile_from_env():
+    """
+    If YTDLP_COOKIES env var exists (Netscape cookies.txt content), write it to /tmp and return the path.
+    """
+    cookie_str = os.environ.get("YTDLP_COOKIES", "").strip()
+    if not cookie_str:
+        return None
+    path = "/tmp/yt_cookies.txt"
+    if not os.path.exists(path):
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(cookie_str)
+    return path
+
+def _yt_dlp_opts_base(extra):
+    """
+    Common yt-dlp options: retries, polite pacing, mobile/web clients,
+    direct audio containers (no ffmpeg), and optional cookies.
+    """
+    opts = {
+        "quiet": True,
+        "noplaylist": True,
+        "retries": 5,
+        "fragment_retries": 5,
+        "concurrent_fragment_downloads": 1,
+        "sleep_requests": 1.0,
+        # Try mobile clients first; sometimes lighter checks
+        "extractor_args": {"youtube": {"player_client": ["ios", "android", "web"]}},
+        # Download an audio container directly to avoid ffmpeg dependency
+        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+    }
+    cookie_file = _ensure_cookiefile_from_env()
+    if cookie_file:
+        opts["cookiefile"] = cookie_file
+    if extra:
+        opts.update(extra)
+    return opts
+
+def _youtube_video_id(url):
+    """
+    Extract a YouTube 11-char video id from common URL shapes.
+    """
+    """
+    Extract a YouTube 11-char video id from common URL shapes.
+    """
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+
+    if host == "youtu.be":
+        vid = parsed.path.lstrip("/")
+        return vid if len(vid) == 11 else None
+    
+    if host in ("www.youtube.com", "youtube.com", "m.youtube.com"):
+        if parsed.path == "/watch":
+            q = parse_qs(parsed.query)
+            vid = (q.get("v") or [None])[0]
+            return vid if vid and len(vid) == 11 else None
+        if parsed.path.startswith(("/embed/", "/v/", "/shorts/")):
+            parts = parsed.path.split("/")
+            if len(parts) > 2 and len(parts[2]) == 11:
+                return parts[2]
+    return None
+
+def yt_title(link):
+    """
+    Fetch title via yt-dlp with cookie support. No download.
+    """
+    ydl_opts = _yt_dlp_opts_base({"skip_download": True})
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(link, download=False)
+            return info.get("title", "YouTube Video")
+    except Exception:
+        return "YouTube Video"
+
+def download_audio(link: str) -> str:
+    """
+    Download best available audio directly to /tmp as m4a/webm. Return file path.
+    """
+    outtmpl = "/tmp/%(id)s.%(ext)s"
+    ydl_opts = _yt_dlp_opts_base({"outtmpl": outtmpl})
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(link, download=True)
+        file_path = ydl.prepare_filename(info)  # e.g., /tmp/VIDEOID.m4a
+        return file_path
+
+def get_transcript_via_captions(link: str):
+    """
+    Prefer captions (fast, avoids downloads). Try English;
+    if unavailable, try any transcript and translate to English.
+    """
+    vid = _youtube_video_id(link)
+    if not vid:
+        return None
+
+    # 1) Try English variants directly
+    for lang in ["en", "en-US", "en-GB"]:
         try:
-            print('View fn acessed')
-            data = json.loads(request.body)
-            yt_link = data['link']
-        except(KeyError, json.JSONDecodeError):
-            return JsonResponse({'error':'Invalid data sent'}, status=400)
-        
-        #get yt title
+            s = YouTubeTranscriptApi.get_transcript(vid, languages=[lang])
+            text = " ".join(c["text"] for c in s if c.get("text"))
+            if text.strip():
+                return text
+        except Exception:
+            pass
+
+    # 2) Try any transcript, then translate to English
+    try:
+        transcripts = YouTubeTranscriptApi.list_transcripts(vid)
+        try:
+            # Prefer an English transcript if available
+            t = transcripts.find_transcript(["en"])
+        except Exception:
+            # Otherwise, pick the first available transcript
+            t = next(iter(transcripts))
+        # Translate to English if needed
+        if not t.language_code.startswith("en"):
+            t = t.translate("en")
+        s = t.fetch()
+        text = " ".join(c["text"] for c in s if c.get("text"))
+        return text.strip() or None
+    except (TranscriptsDisabled, NoTranscriptFound, StopIteration):
+        return None
+    except Exception:
+        return None
+
+def transcribe_via_assemblyai(audio_path: str) -> str:
+    """
+    Send local audio file to AssemblyAI and return text.
+    Always cleans up the audio file after processing.
+    """
+    aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
+    config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.best)
+    try:
+        tr = aai.Transcriber(config=config).transcribe(audio_path)
+        if tr.status == "error":
+            raise RuntimeError(f"Transcription failed: {tr.error}")
+        return tr.text
+    finally:
+        # Clean up temp file
+        try:
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+        except Exception:
+            pass
+
+def get_transcription(link: str):
+    """
+    Caption-first strategy, fallback to audio download + AssemblyAI.
+    """
+    # 1) Captions (no download, often works without cookies)
+
+    cap = get_transcript_via_captions(link)
+    if cap:
+        return cap
+
+    # 2) Fallback: audio → AAI
+    audio_file = download_audio(link)
+    return transcribe_via_assemblyai(audio_file)
+
+@csrf_exempt  # (kept for now; see notes below)
+def generate_blog(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    try:
+        data = json.loads(request.body)          # 1) parse JSON body
+        yt_link = data["link"]                   # 2) extract the youtube link
+    except (KeyError, json.JSONDecodeError):
+        return JsonResponse({"error": "Invalid data sent"}, status=400)
+
+    try:
+        # 3) fetch a human title for the video (fast metadata call; no download)
         title = yt_title(yt_link)
-        print('View title fn acessed')
-        #get transcript
+
+        # 4) get the transcript (captions fast-path → audio+AAI fallback)
         transcription = get_transcription(yt_link)
-        print('View trans fn acessed')
         if not transcription:
-            return JsonResponse({'error': "Failed to get transcript"}, status=500)
-        
-        #use OpenAI to generate the blog
+            return JsonResponse(
+                {
+                    "error": (
+                        "Failed to get transcript. The video may not have captions "
+                        "and the audio path was blocked or failed."
+                    )
+                },
+                status=502,
+            )
+
+        # 5) make the article with your LLM
         blog_content = generate_blog_from_transcription(transcription)
-        print('View blog fn acessed')
         if not blog_content:
-            return JsonResponse({'error': "Failed to generate blog article"}, status=500)
-        
-        #save blog article to database
-        new_blog_article = BlogPost.objects.create(
-            user=request.user,
+            return JsonResponse({"error": "Failed to generate blog article"}, status=500)
+
+        # 6) persist to DB (works even if user isn’t logged in)
+        BlogPost.objects.create(
+            user=request.user if request.user.is_authenticated else None,
             youtube_title=title,
             youtube_link=yt_link,
             generated_content=blog_content,
         )
-        new_blog_article.save()
-        
-        #return blog article as a response
-        return JsonResponse({'content':blog_content})
 
-    else:
-        return JsonResponse({'error': 'Invalid request method'}, status=405)
+        # 7) return the content to the frontend
+        return JsonResponse({"content": blog_content})
 
-def yt_title(link):
-    ydl_opts = {
-        'quiet': True,
-        'skip_download': True  # Don't download, just extract info
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(link, download=False)
-        return info.get('title')
+    except yt_dlp.utils.DownloadError:
+        # This is the common “YouTube challenged the request” case
+        return JsonResponse(
+            {
+                "error": (
+                    "YouTube blocked the request. If the video has no captions, "
+                    "set YTDLP_COOKIES in your server environment and try again."
+                )
+            },
+            status=502,
+        )
+    except Exception:
+        # Keep error details out of responses; log server-side if needed
+        return JsonResponse({"error": "Unexpected server error"}, status=500)
 
 def sanitize_filename(title):
     return re.sub(r'[\\/*?:"<>|]', '', title)
-
-def download_audio(link):
-    # Extract info to get title
-    with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
-        info = ydl.extract_info(link, download=False)
-        title = sanitize_filename(info['title'])
-        safe_title = slugify(title)
-        filename_wo_ext = safe_title  # No .mp3 here
-        output_path = os.path.join(settings.MEDIA_ROOT, filename_wo_ext)
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'outtmpl': output_path,  # No extension!
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([link])
-
-    return os.path.join(settings.MEDIA_ROOT, f"{safe_title}.mp3")
-
-def get_transcription(link):
-    audio_file = download_audio(link)
-    aai.settings.api_key = settings.ASSEMBLYAI_API_KEY
-    config = aai.TranscriptionConfig(speech_model=aai.SpeechModel.best)
-
-    transcript = aai.Transcriber(config=config).transcribe(audio_file)
-
-    if transcript.status == "error":
-        raise RuntimeError(f"Transcription failed: {transcript.error}")   
-
-    return transcript.text
-
 
 def generate_blog_from_transcription(transcription):
     prompt = (
