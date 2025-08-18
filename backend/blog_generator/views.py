@@ -48,6 +48,12 @@ def _yt_dlp_opts_base(extra):
     Common yt-dlp options: retries, polite pacing, mobile/web clients,
     direct audio containers (no ffmpeg), and optional cookies.
     """
+    cookie_file = _ensure_cookiefile_from_env()
+
+    # If we have cookies, we must use the WEB client (iOS/Android ignore cookies)
+    # If we don't have cookies, prefer iOS (tends to avoid SABR/PO issues)
+    player_clients = ["web"] if cookie_file else ["ios"]
+
     opts = {
         "quiet": True,
         "noplaylist": True,
@@ -60,7 +66,7 @@ def _yt_dlp_opts_base(extra):
         # Download an audio container directly to avoid ffmpeg dependency
         "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
     }
-    cookie_file = _ensure_cookiefile_from_env()
+    
     if cookie_file:
         opts["cookiefile"] = cookie_file
     if extra:
