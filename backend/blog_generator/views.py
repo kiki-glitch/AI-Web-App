@@ -80,10 +80,16 @@ def _yt_dlp_opts_base(extra):
         "fragment_retries": 5,
         "concurrent_fragment_downloads": 1,
         "sleep_requests": 1.0,
-        # Try mobile clients first; sometimes lighter checks
-        "extractor_args": {"youtube": {"player_client": ["ios", "android", "web"]}},
-        # Download an audio container directly to avoid ffmpeg dependency
-        "format": "bestaudio[ext=m4a]/bestaudio[ext=webm]/bestaudio/best",
+        "geo_bypass": True,
+        "http_chunk_size": 1 << 20,  # 1 MiB chunks reduce memory spikes
+        "extractor_args": {"youtube": {"player_client": player_clients}},
+        # Keep formats simple; try small-ish audio to be fast and avoid timeouts
+        "format": (
+            "bestaudio[ext=m4a][abr<=128]/"
+            "bestaudio[ext=webm][abr<=128]/"
+            "bestaudio[abr<=128]/"
+            "bestaudio/best"
+        ),
     }
     
     if cookie_file:
@@ -136,9 +142,16 @@ def download_audio(link: str) -> str:
     outtmpl = "/tmp/%(id)s.%(ext)s"
     ydl_opts = _yt_dlp_opts_base({"outtmpl": outtmpl})
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(link, download=True)
-        file_path = ydl.prepare_filename(info)  # e.g., /tmp/VIDEOID.m4a
-        return file_path
+        try:
+            info = ydl.extract_info(link, download=True)
+            file_path = ydl.prepare_filename(info)  # e.g., /tmp/VIDEOID.m4a
+            return file_path
+        except yt_dlp.utils.DownloadError as e:
+            # If it's a 429 or SABR/PO situation, bubble up clearly
+            msg = str(e)
+            if "429" in msg or "Too Many Requests" in msg:
+                raise RuntimeError("YouTube rate-limited this server (HTTP 429). Try again later or use a video with captions.") from e
+            raise
 
 def get_transcript_via_captions(link: str):
     """
